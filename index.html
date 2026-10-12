@@ -1,0 +1,701 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CineNova | Discover Your Next Movie</title>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+<style>
+:root {
+  --red: #e50914;
+  --bg: #080808;
+  --panel: #171717;
+  --muted: #aaa;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: white;
+  font-family: Arial, sans-serif;
+}
+button, input { font: inherit; }
+button { cursor: pointer; }
+header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 17px 5%;
+  background: #090909;
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  border-bottom: 1px solid #222;
+}
+.logo { color: var(--red); font-size: 25px; font-weight: 900; }
+nav { display: flex; gap: 14px; align-items: center; }
+nav button, .plain {
+  background: none;
+  border: 0;
+  color: white;
+}
+main { padding: 0 5% 45px; }
+.hero {
+  min-height: 390px;
+  padding: 65px 25px;
+  display: flex;
+  align-items: end;
+  margin: 20px 0 35px;
+  border-radius: 12px;
+  background:
+    linear-gradient(0deg,#080808 2%,rgba(0,0,0,.15) 100%),
+    linear-gradient(90deg,rgba(0,0,0,.85),transparent),
+    url("https://image.tmdb.org/t/p/original/8Gxv8gSFCU0XGDykEGv7zR1n2ua.jpg")
+    center 25%/cover;
+}
+.hero h1 { font-size: clamp(35px, 7vw, 65px); margin: 0 0 12px; }
+.hero p { max-width: 520px; color: #ddd; line-height: 1.6; }
+.primary {
+  background: var(--red);
+  color: white;
+  border: 0;
+  padding: 12px 17px;
+  border-radius: 5px;
+  font-weight: bold;
+}
+.secondary {
+  background: #333;
+  color: white;
+  border: 0;
+  padding: 12px 17px;
+  border-radius: 5px;
+}
+.search {
+  width: 100%;
+  padding: 13px;
+  margin-bottom: 28px;
+  border-radius: 7px;
+  border: 1px solid #444;
+  background: #171717;
+  color: white;
+}
+.section-title { margin: 30px 0 17px; }
+.movies {
+  display: grid;
+  grid-template-columns: repeat(auto-fill,minmax(135px,1fr));
+  gap: 17px;
+}
+.movie {
+  min-width: 0;
+  background: var(--panel);
+  border-radius: 8px;
+  overflow: hidden;
+  cursor: pointer;
+  transition: transform .2s;
+}
+.movie:hover { transform: translateY(-4px); }
+.movie img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 2/3;
+  object-fit: cover;
+  background: #222;
+}
+.movie-info { padding: 10px; }
+.movie-info h3 { font-size: 14px; margin: 0 0 7px; }
+.movie-info p { color: var(--muted); font-size: 12px; margin: 0; }
+.panel {
+  background: var(--panel);
+  padding: 20px;
+  border-radius: 10px;
+  margin: 25px 0;
+}
+.hidden { display: none !important; }
+.modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,.88);
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 18px;
+  overflow-y: auto;
+}
+.modal-card {
+  background: #181818;
+  padding: 23px;
+  width: 100%;
+  max-width: 460px;
+  border-radius: 12px;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+.modal-card input {
+  display: block;
+  width: 100%;
+  padding: 12px;
+  margin: 10px 0;
+  color: white;
+  background: #090909;
+  border: 1px solid #444;
+  border-radius: 6px;
+}
+.modal-card button { margin: 5px 4px 5px 0; }
+.avatar {
+  width: 74px;
+  height: 74px;
+  border-radius: 50%;
+  object-fit: cover;
+  background: #333;
+  border: 2px solid var(--red);
+}
+.profile-top {
+  display: flex;
+  gap: 15px;
+  align-items: center;
+  margin-bottom: 15px;
+}
+.status { color: #ccc; font-size: 13px; min-height: 18px; }
+footer { padding: 30px 5%; color: #777; text-align: center; }
+@media(max-width:500px) {
+  header { padding: 14px 4%; }
+  .logo { font-size: 21px; }
+  nav { gap: 7px; }
+  nav button { font-size: 12px; padding: 5px; }
+  main { padding-left: 4%; padding-right: 4%; }
+  .hero { min-height: 330px; padding: 25px 16px; }
+  .movies { grid-template-columns: repeat(2,minmax(0,1fr)); }
+}
+</style>
+</head>
+
+<body>
+<header>
+  <div class="logo">CineNova</div>
+  <nav>
+    <button onclick="goHome()">Home</button>
+    <button onclick="showWatchlist()">Watchlist</button>
+    <button onclick="openAccount()" id="accountButton">Sign in</button>
+  </nav>
+</header>
+
+<main>
+  <section class="hero">
+    <div>
+      <p style="color:#ff535b;font-weight:bold">YOUR NEXT MOVIE NIGHT STARTS HERE</p>
+      <h1>Stories that stay with you.</h1>
+      <p>Discover unforgettable movies, explore new worlds, and build your personal watchlist.</p>
+      <button class="primary" onclick="showMovies()">Explore Movies</button>
+    </div>
+  </section>
+
+  <input id="search" class="search"
+    placeholder="Search movies..."
+    oninput="renderMovies()">
+
+  <h2 class="section-title" id="listHeading">Popular Movies</h2>
+  <div class="movies" id="movieGrid"></div>
+
+  <section class="panel hidden" id="profileSection">
+    <div class="profile-top">
+      <img id="profileAvatar" class="avatar"
+        src="https://placehold.co/100x100/222/fff?text=CN" alt="Profile avatar">
+      <div>
+        <h2 id="profileHeading">Your Profile</h2>
+        <p id="profileEmail" style="color:#aaa;overflow-wrap:anywhere"></p>
+      </div>
+    </div>
+    <label for="displayName">Display name</label>
+    <input id="displayName" placeholder="Enter your display name">
+    <label for="avatarUrl">Avatar image URL</label>
+    <input id="avatarUrl" placeholder="Paste an image URL (optional)">
+    <button class="primary" onclick="saveProfile()">Save Profile</button>
+    <button class="secondary" onclick="signOut()">Sign Out</button>
+    <p class="status" id="profileStatus"></p>
+  </section>
+</main>
+
+<footer>CineNova © 2026 · Discover your next favourite movie.</footer>
+
+<div class="modal hidden" id="accountModal">
+  <div class="modal-card">
+    <button class="plain" style="float:right" onclick="closeModal('accountModal')">✕ Close</button>
+    <h2 id="authHeading">Welcome to CineNova</h2>
+    <p style="color:#aaa">Sign in or create your free account.</p>
+    <input id="authEmail" type="email" placeholder="Email address" autocomplete="email">
+    <input id="authPassword" type="password" placeholder="Password (at least 6 characters)" autocomplete="current-password">
+    <button class="primary" onclick="signIn()">Sign In</button>
+    <button class="secondary" onclick="signUp()">Create Account</button>
+    <p class="status" id="authStatus"></p>
+  </div>
+</div>
+
+<div class="modal hidden" id="movieModal">
+  <div class="modal-card">
+    <button class="plain" style="float:right" onclick="closeModal('movieModal')">✕ Close</button>
+    <img id="detailPoster" style="width:100%;max-height:330px;object-fit:contain;background:#090909" alt="Movie poster">
+    <h2 id="detailTitle"></h2>
+    <p id="detailYear" style="color:#aaa"></p>
+    <p id="detailDescription"></p>
+    <button class="primary" id="watchlistButton" onclick="toggleWatchlist()">+ Add to Watchlist</button>
+    <p class="status" id="movieStatus"></p>
+  </div>
+</div>
+
+<script>
+const SUPABASE_URL = "https://vtaukhwmkevrobkmuttt.supabase.co";
+const SUPABASE_KEY = "sb_publishable_zJSMqIjS2rkSYsmEQoRfgg_M1vslRPn";
+
+const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+const movies = [
+  {
+    id: "oppenheimer",
+    title: "Oppenheimer",
+    year: 2023,
+    poster: "https://image.tmdb.org/t/p/w500/ptpr0kGAckfQkJeJIt8st5dglvd.jpg",
+    description: "A dramatic story about the scientist whose work helped shape the atomic age."
+  },
+  {
+    id: "gladiator-ii",
+    title: "Gladiator II",
+    year: 2024,
+    poster: "https://image.tmdb.org/t/p/w500/2cxhvwyEwRlysAmRH4iodkvo0z5.jpg",
+    description: "A new chapter of power, honour, and survival in ancient Rome."
+  },
+  {
+    id: "avatar-way-of-water",
+    title: "Avatar: The Way of Water",
+    year: 2022,
+    poster: "https://image.tmdb.org/t/p/w500/t6HIqrRAclMCA60NsSmeqe9RmNV.jpg",
+    description: "Return to Pandora for an adventure across its spectacular oceans."
+  },
+  {
+    id: "interstellar",
+    title: "Interstellar",
+    year: 2014,
+    poster: "https://image.tmdb.org/t/p/w500/gEU2QniE6E77NI6lCU6MxlNBvIx.jpg",
+    description: "A team of explorers travels beyond familiar boundaries to search for humanity's future."
+  },
+  {
+    id: "the-batman",
+    title: "The Batman",
+    year: 2022,
+    poster: "https://image.tmdb.org/t/p/w500/74xTEgt7R36Fpooo50r9T25onhq.jpg",
+    description: "A dark detective story set in Gotham City."
+  },
+  {
+    id: "dune-part-two",
+    title: "Dune: Part Two",
+    year: 2024,
+    poster: "https://image.tmdb.org/t/p/w500/1pdfLvkbY9ohJlCjQH2CZjjYVvJ.jpg",
+    description: "Paul Atreides joins forces with the Fremen as his destiny unfolds."
+  },
+  {
+    id: "avengers-endgame",
+    title: "Avengers: Endgame",
+    year: 2019,
+    poster: "https://image.tmdb.org/t/p/w500/ulzhLuWrPK07P1YkdWQLZnQh1JL.jpg",
+    description: "The Avengers attempt to undo a devastating loss and save the universe."
+  },
+  {
+    id: "john-wick",
+    title: "John Wick",
+    year: 2014,
+    poster: "https://image.tmdb.org/t/p/w500/fZPSd91yGE9fCcCe6OoQr6E3Bev.jpg",
+    description: "A retired assassin is pulled back into a dangerous world."
+  }
+];
+
+let currentUser = null;
+let currentProfile = null;
+let watchlist = [];
+let selectedMovie = null;
+let watchlistOnly = false;
+
+function safeText(value) {
+  return String(value ?? "");
+}
+
+function setStatus(id, message) {
+  document.getElementById(id).textContent = message;
+}
+
+function closeModal(id) {
+  document.getElementById(id).classList.add("hidden");
+}
+
+function openAccount() {
+  if (currentUser) {
+    document.getElementById("profileSection").classList.remove("hidden");
+    document.getElementById("profileSection").scrollIntoView({behavior:"smooth"});
+  } else {
+    document.getElementById("accountModal").classList.remove("hidden");
+  }
+}
+
+function goHome() {
+  watchlistOnly = false;
+  document.getElementById("search").value = "";
+  document.getElementById("listHeading").textContent = "Popular Movies";
+  renderMovies();
+  window.scrollTo({top:0,behavior:"smooth"});
+}
+
+function showMovies() {
+  document.getElementById("listHeading").scrollIntoView({behavior:"smooth"});
+}
+
+function showWatchlist() {
+  if (!currentUser) {
+    openAccount();
+    setStatus("authStatus", "Sign in to see your saved movies.");
+    return;
+  }
+  watchlistOnly = true;
+  document.getElementById("listHeading").textContent = "My Watchlist";
+  renderMovies();
+  document.getElementById("listHeading").scrollIntoView({behavior:"smooth"});
+}
+
+function renderMovies() {
+  const query = document.getElementById("search").value.trim().toLowerCase();
+  const savedIds = watchlist.map(item => String(item.movie_id));
+
+  const filtered = movies.filter(movie => {
+    const matchesQuery = movie.title.toLowerCase().includes(query);
+    const matchesList = !watchlistOnly || savedIds.includes(movie.id);
+    return matchesQuery && matchesList;
+  });
+
+  const grid = document.getElementById("movieGrid");
+  grid.innerHTML = "";
+
+  if (!filtered.length) {
+    grid.innerHTML = "<p style='color:#aaa'>No movies found. Try another search or add movies to your Watchlist.</p>";
+    return;
+  }
+
+  filtered.forEach(movie => {
+    const card = document.createElement("article");
+    card.className = "movie";
+    card.onclick = () => openMovie(movie);
+
+    const img = document.createElement("img");
+    img.src = movie.poster;
+    img.alt = movie.title + " poster";
+    img.loading = "lazy";
+    img.onerror = () => {
+      img.onerror = null;
+      img.src = "https://placehold.co/300x450/222/fff?text=CineNova";
+    };
+
+    const info = document.createElement("div");
+    info.className = "movie-info";
+
+    const title = document.createElement("h3");
+    title.textContent = movie.title;
+
+    const year = document.createElement("p");
+    year.textContent = String(movie.year);
+
+    info.append(title, year);
+    card.append(img, info);
+    grid.appendChild(card);
+  });
+}
+
+function openMovie(movie) {
+  selectedMovie = movie;
+  document.getElementById("detailPoster").src = movie.poster;
+  document.getElementById("detailTitle").textContent = movie.title;
+  document.getElementById("detailYear").textContent = String(movie.year);
+  document.getElementById("detailDescription").textContent = movie.description;
+  setStatus("movieStatus", "");
+  updateWatchlistButton();
+  document.getElementById("movieModal").classList.remove("hidden");
+}
+
+function updateWatchlistButton() {
+  if (!selectedMovie) return;
+  const saved = watchlist.some(item => String(item.movie_id) === selectedMovie.id);
+  document.getElementById("watchlistButton").textContent =
+    saved ? "− Remove from Watchlist" : "+ Add to Watchlist";
+}
+
+async function toggleWatchlist() {
+  if (!currentUser) {
+    closeModal("movieModal");
+    openAccount();
+    setStatus("authStatus", "Sign in first to save movies.");
+    return;
+  }
+
+  if (!selectedMovie) return;
+
+  const button = document.getElementById("watchlistButton");
+  button.disabled = true;
+  setStatus("movieStatus", "Saving...");
+
+  try {
+    const existing = watchlist.find(
+      item => String(item.movie_id) === selectedMovie.id
+    );
+
+    if (existing) {
+      const {error} = await db
+        .from("watchlist")
+        .delete()
+        .eq("user_id", currentUser.id)
+        .eq("movie_id", selectedMovie.id);
+
+      if (error) throw error;
+
+      watchlist = watchlist.filter(
+        item => String(item.movie_id) !== selectedMovie.id
+      );
+      setStatus("movieStatus", "Removed from your Watchlist.");
+    } else {
+      const record = {
+        user_id: currentUser.id,
+        movie_id: selectedMovie.id,
+        title: selectedMovie.title,
+        poster_url: selectedMovie.poster
+      };
+
+      const {data,error} = await db
+        .from("watchlist")
+        .insert(record)
+        .select()
+        .single();
+
+      if (error) throw error;
+      watchlist.push(data);
+      setStatus("movieStatus", "Saved to your Watchlist!");
+    }
+
+    updateWatchlistButton();
+    renderMovies();
+  } catch (error) {
+    setStatus("movieStatus", "Could not save: " + error.message);
+  } finally {
+    button.disabled = false;
+  }
+}
+
+async function signUp() {
+  const email = document.getElementById("authEmail").value.trim();
+  const password = document.getElementById("authPassword").value;
+
+  if (!email || password.length < 6) {
+    setStatus("authStatus", "Enter a valid email and a password of at least 6 characters.");
+    return;
+  }
+
+  setStatus("authStatus", "Creating your account...");
+
+  const {data,error} = await db.auth.signUp({email,password});
+
+  if (error) {
+    setStatus("authStatus", error.message);
+    return;
+  }
+
+  if (data.session) {
+    currentUser = data.user;
+    await loadUserData();
+    closeModal("accountModal");
+    setStatus("profileStatus", "Account created. Complete your profile below.");
+  } else {
+    setStatus("authStatus", "Account created! Check your email to confirm, then sign in.");
+  }
+}
+
+async function signIn() {
+  const email = document.getElementById("authEmail").value.trim();
+  const password = document.getElementById("authPassword").value;
+
+  if (!email || !password) {
+    setStatus("authStatus", "Enter your email and password.");
+    return;
+  }
+
+  setStatus("authStatus", "Signing in...");
+
+  const {data,error} = await db.auth.signInWithPassword({email,password});
+
+  if (error) {
+    setStatus("authStatus", error.message);
+    return;
+  }
+
+  currentUser = data.user;
+  await loadUserData();
+  closeModal("accountModal");
+  document.getElementById("profileSection").classList.remove("hidden");
+  setStatus("profileStatus", "You are signed in.");
+}
+
+async function loadUserData() {
+  if (!currentUser) return;
+
+  document.getElementById("accountButton").textContent = "My Profile";
+  document.getElementById("profileEmail").textContent = currentUser.email || "";
+
+  try {
+    const {data:profile,error:profileError} = await db
+      .from("profiles")
+      .select("*")
+      .eq("id",currentUser.id)
+      .maybeSingle();
+
+    if (profileError) throw profileError;
+
+    if (profile) {
+      currentProfile = profile;
+    } else {
+      const {data:newProfile,error:newError} = await db
+        .from("profiles")
+        .upsert({
+          id:currentUser.id,
+          email:currentUser.email,
+          display_name:"",
+          avatar_url:""
+        },{onConflict:"id"})
+        .select()
+        .single();
+
+      if (newError) throw newError;
+      currentProfile = newProfile;
+    }
+
+    document.getElementById("displayName").value =
+      currentProfile.display_name || "";
+    document.getElementById("avatarUrl").value =
+      currentProfile.avatar_url || "";
+
+    document.getElementById("profileHeading").textContent =
+      currentProfile.display_name || "Your Profile";
+
+    document.getElementById("profileAvatar").src =
+      currentProfile.avatar_url ||
+      "https://placehold.co/100x100/222/fff?text=CN";
+
+    document.getElementById("profileAvatar").onerror = function() {
+      this.onerror = null;
+      this.src = "https://placehold.co/100x100/222/fff?text=CN";
+    };
+
+    setStatus("profileStatus", "");
+  } catch (error) {
+    setStatus("profileStatus", "Profile error: " + error.message);
+  }
+
+  await loadWatchlist();
+}
+
+async function saveProfile() {
+  if (!currentUser) {
+    setStatus("profileStatus", "Sign in before saving your profile.");
+    return;
+  }
+
+  const displayName = document.getElementById("displayName").value.trim();
+  const avatarUrl = document.getElementById("avatarUrl").value.trim();
+
+  if (avatarUrl && !/^https?:\/\/\S+$/i.test(avatarUrl)) {
+    setStatus("profileStatus", "Use a valid image URL starting with https://");
+    return;
+  }
+
+  setStatus("profileStatus", "Saving profile...");
+
+  const {data,error} = await db
+    .from("profiles")
+    .upsert({
+      id:currentUser.id,
+      email:currentUser.email,
+      display_name:displayName,
+      avatar_url:avatarUrl
+    },{onConflict:"id"})
+    .select()
+    .single();
+
+  if (error) {
+    setStatus("profileStatus", "Could not save profile: " + error.message);
+    return;
+  }
+
+  currentProfile = data;
+  document.getElementById("profileHeading").textContent =
+    displayName || "Your Profile";
+  document.getElementById("profileAvatar").src =
+    avatarUrl || "https://placehold.co/100x100/222/fff?text=CN";
+
+  setStatus("profileStatus", "Profile saved successfully!");
+}
+
+async function loadWatchlist() {
+  if (!currentUser) {
+    watchlist = [];
+    renderMovies();
+    return;
+  }
+
+  const {data,error} = await db
+    .from("watchlist")
+    .select("*")
+    .eq("user_id",currentUser.id)
+    .order("created_at",{ascending:false});
+
+  if (error) {
+    setStatus("profileStatus", "Watchlist error: " + error.message);
+    return;
+  }
+
+  watchlist = data || [];
+  renderMovies();
+  updateWatchlistButton();
+}
+
+async function signOut() {
+  const {error} = await db.auth.signOut();
+
+  if (error) {
+    setStatus("profileStatus", error.message);
+    return;
+  }
+
+  currentUser = null;
+  currentProfile = null;
+  watchlist = [];
+  document.getElementById("accountButton").textContent = "Sign in";
+  document.getElementById("profileSection").classList.add("hidden");
+  closeModal("accountModal");
+  watchlistOnly = false;
+  document.getElementById("listHeading").textContent = "Popular Movies";
+  renderMovies();
+}
+
+db.auth.onAuthStateChange((event,session) => {
+  currentUser = session?.user || null;
+
+  if (currentUser) {
+    loadUserData();
+  } else {
+    currentProfile = null;
+    watchlist = [];
+    document.getElementById("accountButton").textContent = "Sign in";
+    renderMovies();
+  }
+});
+
+renderMovies();
+</script>
+</body>
+</html>
